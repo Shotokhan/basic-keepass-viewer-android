@@ -19,7 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.room.*
 import kotlinx.coroutines.Dispatchers
@@ -431,6 +434,7 @@ private fun PasswordDialog(masterPassword: String, onChange: (String) -> Unit, o
                 label = { Text("Password") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth()
             )
         },
@@ -475,7 +479,25 @@ private fun GroupRow(title: String, expanded: Boolean, onToggle: () -> Unit, dep
 @Composable
 private fun EntryRow(node: Node, depth: Int) {
     val ctx = LocalContext.current
+    val clipboard = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
     var showPassword by remember(node.id) { mutableStateOf(false) }
+    var lastCopiedPassword by remember { mutableStateOf<String?>(null) }
+
+    // When lastCopiedPassword changes, start a 10s timer
+    // TODO: this is not working properly
+    LaunchedEffect(lastCopiedPassword) {
+        if (lastCopiedPassword != null) {
+            kotlinx.coroutines.delay(10_000)
+            // Clear clipboard if it's still the same value we put there
+            if (clipboard.hasPrimaryClip() &&
+                clipboard.primaryClip?.getItemAt(0)?.text == lastCopiedPassword
+            ) {
+                clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+            }
+            lastCopiedPassword = null
+        }
+    }
 
     Column(
         Modifier
@@ -497,6 +519,7 @@ private fun EntryRow(node: Node, depth: Int) {
                 val clip = node.password ?: return@TextButton
                 val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("password", clip))
+                lastCopiedPassword = clip
             }) { Text("Copy") }
         }
 
